@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ultimate Billing Invoice</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { cursor: none; }
+    .sparkle {
+      position: fixed;
+      pointer-events: none;
+      width: 6px; height: 6px;
+      background: #00C897;
+      border-radius: 50%;
+      animation: fadeMove 0.8s forwards;
+    }
+    @keyframes fadeMove {
+      to { transform: translateY(-20px); opacity: 0; }
+    }
+    .floating-rupee {
+      position: absolute;
+      font-size: 1.5rem;
+      color: #38bdf8;
+      animation: floatRupee 3s linear infinite;
+    }
+    @keyframes floatRupee {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1;}
+      100% { transform: translateY(-200px) rotate(360deg); opacity: 0;}
+    }
+    tr:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1);}
+    tr, input:focus { transition: all 0.2s ease; }
+  </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-6 relative overflow-hidden">
+
+  <!-- Floating rupees -->
+  <script>
+    setInterval(() => {
+      let rupee = document.createElement('div');
+      rupee.classList.add('floating-rupee');
+      rupee.style.left = Math.random() * window.innerWidth + 'px';
+      rupee.style.top = window.innerHeight + 'px';
+      rupee.innerText = '₹';
+      document.body.appendChild(rupee);
+      setTimeout(() => rupee.remove(), 3000);
+    }, 500);
+  </script>
+
+  <div id="invoice" class="max-w-3xl w-full bg-white rounded-2xl shadow-2xl p-8 relative z-10">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">Invoice Generator</h1>
+      <p class="text-gray-500">Date: <span id="today" class="font-semibold"></span></p>
+    </div>
+
+    <div class="overflow-x-auto mb-8">
+      <table class="min-w-full border-collapse">
+        <thead>
+          <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+            <th class="py-3 px-6 text-left">Item</th>
+            <th class="py-3 px-6 text-right">Qty</th>
+            <th class="py-3 px-6 text-right">Price (₹)</th>
+            <th class="py-3 px-6 text-right">Total (₹)</th>
+          </tr>
+        </thead>
+        <tbody id="billing-rows" class="text-gray-600 text-sm font-light">
+          <tr>
+            <td class="py-3 px-6"><input type="text" value="Service" class="w-full border-b border-gray-300 focus:border-blue-500 outline-none"/></td>
+            <td class="py-3 px-6 text-right"><input type="number" value="1" min="0" class="qty w-16 text-right border-b border-gray-300 focus:border-blue-500 outline-none"/></td>
+            <td class="py-3 px-6 text-right"><input type="number" value="5000" min="0" class="price w-20 text-right border-b border-gray-300 focus:border-blue-500 outline-none"/></td>
+            <td class="py-3 px-6 text-right total">₹5000</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="mt-4">
+        <button onclick="addRow()" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-full shadow hover:scale-105 transition">
+          + Add Item
+        </button>
+      </div>
+    </div>
+
+    <div class="flex justify-end mb-4">
+      <div class="w-full md:w-1/2">
+        <div class="flex justify-between py-2">
+          <span class="text-gray-600">Subtotal</span>
+          <span id="subtotal" class="text-gray-800 font-semibold">₹0</span>
+        </div>
+        <div class="flex justify-between py-2">
+          <span class="text-gray-600">Tax (5%)</span>
+          <span id="tax" class="text-gray-800 font-semibold">₹0</span>
+        </div>
+        <div class="flex justify-between py-2 border-t border-gray-300 mt-2">
+          <span class="text-gray-800 font-bold">Total</span>
+          <span id="grandtotal" class="text-gray-800 font-bold">₹0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center space-x-4 mb-4">
+      <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full shadow-lg transition transform hover:scale-105">
+        Print
+      </button>
+      <button onclick="downloadCSV()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-full shadow-lg transition transform hover:scale-105">
+        Download CSV
+      </button>
+      <button onclick="downloadPDF()" class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-6 rounded-full shadow-lg transition transform hover:scale-105">
+        Save PDF
+      </button>
+    </div>
+
+    <div class="text-center mt-6 text-gray-500 text-sm">
+      Owner: <span class="font-semibold">Apoorv Patel</span>
+    </div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+  document.getElementById("today").innerText = new Date().toLocaleDateString();
+
+  function updateTotals() {
+    let rows = document.querySelectorAll("#billing-rows tr");
+    let subtotal = 0;
+    rows.forEach(row => {
+      let qty = parseFloat(row.querySelector(".qty").value) || 0;
+      let price = parseFloat(row.querySelector(".price").value) || 0;
+      let total = qty * price;
+      row.querySelector(".total").innerText = "₹" + total.toFixed(2);
+      subtotal += total;
+    });
+    let tax = subtotal * 0.05;
+    let grandtotal = subtotal + tax;
+    document.getElementById("subtotal").innerText = "₹" + subtotal.toFixed(2);
+    document.getElementById("tax").innerText = "₹" + tax.toFixed(2);
+    document.getElementById("grandtotal").innerText = "₹" + grandtotal.toFixed(2);
+  }
+
+  document.addEventListener("input", e => {
+    if (e.target.classList.contains("qty") || e.target.classList.contains("price")) {
+      updateTotals();
+    }
+  });
+
+  function addRow() {
+    let table = document.getElementById("billing-rows");
+    let newRow = document.createElement("tr");
+    newRow.innerHTML = `
+      <td class="py-3 px-6"><input type="text" value="Item" class="w-full border-b border-gray-300 focus:border-blue-500 outline-none"/></td>
+      <td class="py-3 px-6 text-right"><input type="number" value="1" min="0" class="qty w-16 text-right border-b border-gray-300 focus:border-blue-500 outline-none"/></td>
+      <td class="py-3 px-6 text-right"><input type="number" value="0" min="0" class="price w-20 text-right border-b border-gray-300 focus:border-blue-500 outline-none"/></td>
+      <td class="py-3 px-6 text-right total">₹0.00</td>
+    `;
+    table.appendChild(newRow);
+  }
+
+  updateTotals();
+
+  function downloadCSV() {
+    let csv = "Item,Qty,Price,Total\n";
+    let rows = document.querySelectorAll("#billing-rows tr");
+    rows.forEach(row => {
+      let item = row.querySelector("input[type='text']").value;
+      let qty = row.querySelector(".qty").value;
+      let price = row.querySelector(".price").value;
+      let total = (qty * price).toFixed(2);
+      csv += `${item},${qty},${price},${total}\n`;
+    });
+    csv += `,,Subtotal,${document.getElementById("subtotal").innerText}\n`;
+    csv += `,,Tax,${document.getElementById("tax").innerText}\n`;
+    csv += `,,Total,${document.getElementById("grandtotal").innerText}\n`;
+    let blob = new Blob([csv], {type: "text/csv"});
+    let link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "invoice.csv";
+    link.click();
+  }
+
+  function downloadPDF() {
+    import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js').then(jsPDF => {
+      const { jsPDF: JSPDF } = jsPDF;
+      const doc = new JSPDF();
+      doc.text("Invoice Summary", 10, 10);
+      let rows = document.querySelectorAll("#billing-rows tr");
+      let y = 20;
+      rows.forEach(row => {
+        let item = row.querySelector("input[type='text']").value;
+        let qty = row.querySelector(".qty").value;
+        let price = row.querySelector(".price").value;
+        let total = (qty * price).toFixed(2);
+        doc.text(`${item} | Qty: ${qty} | Price: ₹${price} | Total: ₹${total}`, 10, y);
+        y += 10;
+      });
+      y += 10;
+      doc.text(`Subtotal: ${document.getElementById("subtotal").innerText}`, 10, y);
+      doc.text(`Tax: ${document.getElementById("tax").innerText}`, 10, y+10);
+      doc.text(`Total: ${document.getElementById("grandtotal").innerText}`, 10, y+20);
+      doc.save("invoice.pdf");
+    });
+  }
+
+  // Cursor sparkles
+  document.addEventListener("mousemove", e => {
+    let sparkle = document.createElement("div");
+    sparkle.classList.add("sparkle");
+    sparkle.style.left = e.pageX + "px";
+    sparkle.style.top = e.pageY + "px";
+    document.body.appendChild(sparkle);
+    setTimeout(() => sparkle.remove(), 800);
+  });
+</script>
+
+</body>
+</html>
